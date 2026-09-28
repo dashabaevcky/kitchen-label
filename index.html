@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Кухонная Маркировка РБ</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; }
+        h1 { text-align: center; color: #333; font-size: 22px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; }
+        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
+        .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
+        
+        @media print {
+            @page { size: 58mm 40mm; margin: 0; }
+            body { background: #fff; padding: 0; margin: 0; }
+            .no-print { display: none; }
+            .sticker { display: block !important; width: 58mm; height: 40mm; padding: 3mm; box-sizing: border-box; page-break-after: always; }
+            .title { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 3mm; word-wrap: break-word; line-height: 1.2; }
+            .info { font-size: 9pt; font-weight: normal; margin-bottom: 1.5mm; text-align: left; }
+            .bold-info { font-size: 10pt; font-weight: bold; text-align: left; }
+        }
+        .sticker { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1 class="no-print" id="status-title">Загрузка базы полуфабрикатов...</h1>
+    <div class="loading no-print" id="loader">Пожалуйста, подождите...</div>
+    <div class="grid no-print" id="menu"></div>
+
+    <!-- Контейнер для вывода на печать -->
+    <div id="print-area"></div>
+
+    <script>
+        // Ваша актуальная рабочая ссылка Google Apps Script
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwACF0Qc752mux6TjD0TiHP3lPNpeYk4PURSGfVn6bE8Ez5Y0yB4Vgv8GKTi-SDYz0jNQ/exec"; 
+
+        const menuContainer = document.getElementById('menu');
+        const loader = document.getElementById('loader');
+        const statusTitle = document.getElementById('status-title');
+
+        // ИСПРАВЛЕНО: Условие теперь проверяет, что ссылка вставлена и не является пустой/дефолтной шаблоном
+        if (WEB_APP_URL && WEB_APP_URL !== "") {
+            fetch(WEB_APP_URL)
+                .then(response => response.json())
+                .then(products => {
+                    loader.style.display = 'none';
+                    statusTitle.innerText = 'Выберите полуфабрикат для печати';
+                    
+                    products.forEach(prod => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.innerText = prod.name;
+                        tile.onclick = () => generateAndPrint(prod);
+                        menuContainer.appendChild(tile);
+                    });
+                })
+                .catch(error => {
+                    loader.innerText = "Ошибка загрузки базы данных. Проверьте деплой в Google.";
+                    console.error("Ошибка:", error);
+                });
+        }
+
+        function formatDate(date) {
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            const h = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${d}.${m}.${y} ${h}:${min}`;
+        }
+
+        function generateAndPrint(product) {
+            const now = new Date();
+            const exp = new Date(now.getTime() + (parseInt(product.hours) * 60 * 60 * 1000));
+            
+            const timeString = formatDate(now);
+            const expString = formatDate(exp);
+
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = `
+                <div class="sticker">
+                    <div class="title">${product.name}</div>
+                    <div class="info">Приготовлено: ${timeString}</div>
+                    <div class="bold-info">Годен до: ${expString}</div>
+                </div>
+            `;
+
+            // Фиксация в Журнале Бракеража РБ (Google Таблица)
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: product.name,
+                    time: timeString,
+                    hours: product.hours,
+                    quality: "Доброкачественно",
+                    status: "Разрешено"
+                })
+            });
+
+            // Вызов встроенного AirPrint на iPhone
+            window.print();
+        }
+    </script>
+</body>
+</html>
