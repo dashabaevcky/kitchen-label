@@ -11,29 +11,18 @@
         .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
         .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
-        
-        @media print {
-            @page { size: 58mm 40mm; margin: 0; }
-            body { background: #fff; padding: 0; margin: 0; }
-            .no-print { display: none; }
-            .sticker { display: block !important; width: 58mm; height: 40mm; padding: 3mm; box-sizing: border-box; page-break-after: always; }
-            .title { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 3mm; word-wrap: break-word; line-height: 1.2; }
-            .info { font-size: 9pt; font-weight: normal; margin-bottom: 1.5mm; text-align: left; }
-            .bold-info { font-size: 10pt; font-weight: bold; text-align: left; }
-        }
-        .sticker { display: none; }
     </style>
 </head>
 <body>
 
-    <h1 class="no-print" id="status-title">Загрузка базы полуфабрикатов...</h1>
-    <div class="loading no-print" id="loader">Пожалуйста, подождите...</div>
-    <div class="grid no-print" id="menu"></div>
-
-    <!-- Контейнер для вывода на печать -->
-    <div id="print-area"></div>
+    <h1 id="status-title">Загрузка базы полуфабрикатов...</h1>
+    <div class="loading" id="loader">Пожалуйста, подождите...</div>
+    <div class="grid" id="menu"></div>
 
     <script>
+        // ЖЕСТКО ЗАФИКСИРОВАЛ ВАШ НАСТРОЕННЫЙ IP ПРИНТЕРА В СЕТИ GELATO
+        const PRINTER_IP = "192.168.1.200"; 
+        
         // Ваша актуальная рабочая ссылка Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwACF0Qc752mux6TjD0TiHP3lPNpeYk4PURSGfVn6bE8Ez5Y0yB4Vgv8GKTi-SDYz0jNQ/exec"; 
 
@@ -41,7 +30,6 @@
         const loader = document.getElementById('loader');
         const statusTitle = document.getElementById('status-title');
 
-        // ИСПРАВЛЕНО: Условие теперь проверяет, что ссылка вставлена и не является пустой/дефолтной шаблоном
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -79,16 +67,7 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            const printArea = document.getElementById('print-area');
-            printArea.innerHTML = `
-                <div class="sticker">
-                    <div class="title">${product.name}</div>
-                    <div class="info">Приготовлено: ${timeString}</div>
-                    <div class="bold-info">Годен до: ${expString}</div>
-                </div>
-            `;
-
-            // Фиксация в Журнале Бракеража РБ (Google Таблица)
+            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -102,8 +81,34 @@
                 })
             });
 
-            // Вызов встроенного AirPrint на iPhone
-            window.print();
+            // 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
+            const tsplCommand = 
+                `SIZE 58 mm, 40 mm\r\n` +
+                `GAP 3 mm, 0 mm\r\n` +
+                `DIRECTION 1\r\n` +
+                `CLS\r\n` +
+                `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` +
+                `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
+                `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
+                `PRINT 1,1\r\n`;
+
+            // Кодируем кириллицу в стандартный формат принтера
+            const encoder = new TextEncoder('windows-1251'); 
+            const dataBuffer = encoder.encode(tsplCommand);
+
+            // Отправляем пакет напрямую на сетевой порт 9100 принтера
+            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
+            ws.binaryType = 'arraybuffer';
+            
+            ws.onopen = () => {
+                ws.send(dataBuffer);
+                ws.close();
+            };
+            
+            ws.onerror = (err) => {
+                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети на iPhone.");
+                console.error(err);
+            };
         }
     </script>
 </body>
