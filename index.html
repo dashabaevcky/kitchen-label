@@ -20,7 +20,7 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // АКТУАЛЬНЫЙ IP ПРИНТЕРА В СЕТИ GELATO
+        // Ваш актуальный IP принтера в сети Gelato
         const PRINTER_IP = "192.168.1.5"; 
         
         // Ваша рабочая ссылка Google Apps Script
@@ -92,23 +92,23 @@
                 `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
                 `PRINT 1,1\r\n`;
 
-            // Кодируем кириллицу в стандартный формат принтера
+            // Кодируем кириллицу в стандартный формат принтера Windows-1251
             const encoder = new TextEncoder('windows-1251'); 
             const dataBuffer = encoder.encode(tsplCommand);
 
-            // Отправляем пакет напрямую на сетевой порт 9100 принтера
-            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
-            ws.binaryType = 'arraybuffer';
-            
-            ws.onopen = () => {
-                ws.send(dataBuffer);
-                ws.close();
-            };
-            
-            ws.onerror = (err) => {
-                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети на iPhone.");
+            // ЗАМЕНЕНО: Надежный сетевой fetch-запрос вместо WebSocket для обхода блокировок портов
+            fetch(`http://${PRINTER_IP}:9100`, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: dataBuffer
+            })
+            .then(() => {
+                console.log("Команда печати успешно отправлена.");
+            })
+            .catch((err) => {
+                alert("Ошибка связи с принтером Wi-Fi. Проверьте подключение к сети Gelato.");
                 console.error(err);
-            };
+            });
         }
     </script>
 </body>
