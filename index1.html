@@ -1,37 +1,115 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head> 
-<meta charset="UTF-8"> 
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
-<title>Кухонная Маркировка РБ</title> 
-<style> body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; } h1 { text-align: center; color: #333; font-size: 22px; } .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; } .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); } .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; } .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; } </style></head><body> <h1 id="status-title">Загрузка базы полуфабрикатов...</h1>
-<div class="loading" id="loader">Пожалуйста, подождите...</div> 
-<div class="grid" id="menu"></div> 
-<script> // ЖЕСТКО ЗАФИКСИРОВАЛ ВАШ НАСТРОЕННЫЙ IP ПРИНТЕРА В СЕТИ GELATO 
-const PRINTER_IP = "192.168.1.5"; 
-// Ваша актуальная рабочая ссылка Google Apps Script 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwACF0Qc752mux6TjD0TiHP3lPNpeYk4PURSGfVn6bE8Ez5Y0yB4Vgv8GKTi-SDYz0jNQ/exec"; const menuContainer = document.getElementById('menu'); 
-const loader = document.getElementById('loader'); 
-const statusTitle = document.getElementById('status-title'); 
-if (WEB_APP_URL && WEB_APP_URL !== "") { 
-fetch(WEB_APP_URL) .then(response => response.json()) .then(products => { loader.style.display = 'none'; 
-statusTitle.innerText = 'Выберите полуфабрикат для печати'; 
-products.forEach(prod => { const tile = document.createElement('div'); 
-tile.className = 'tile'; 
-tile.innerText = prod.name; 
-tile.onclick = () => generateAndPrint(prod); menuContainer.appendChild(tile); }); }) .catch(error => { loader.innerText = "Ошибка загрузки базы данных. Проверьте деплой в Google."; console.error("Ошибка:", error); }); } function formatDate(date) { const d = String(date.getDate()).padStart(2, '0'); const m = String(date.getMonth() + 1).padStart(2, '0'); const y = date.getFullYear(); const h = String(date.getHours()).padStart(2, '0'); const min = String(date.getMinutes()).padStart(2, '0'); return `${d}.${m}.${y} ${h}:${min}`; } 
-function generateAndPrint(product) { 
-const now = new Date(); 
-const exp = new Date(now.getTime() + (parseInt(product.hours) * 60 * 60 * 1000)); 
-const timeString = formatDate(now); const expString = formatDate(exp); 
-// 1. Фиксация в Журнале Бракеража РБ (Google Таблица) 
-fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: product.name, time: timeString, hours: product.hours, quality: "Доброкачественно", status: "Разрешено" }) }); 
-// 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
- const tsplCommand = `SIZE 58 mm, 40 mm\r\n` + `GAP 3 mm, 0 mm\r\n` + `DIRECTION 1\r\n` + `CLS\r\n` + `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` + `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` + `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` + `PRINT 1,1\r\n`; 
- // Кодируем кириллицу в стандартный формат принтера
- const encoder = new TextEncoder('windows-1251'); const dataBuffer = encoder.encode(tsplCommand); 
- // Отправляем пакет напрямую на сетевой порт 9100 принтера 
- const ws = new WebSocket(`ws://${PRINTER_IP}:9100`); ws.binaryType = 'arraybuffer'; ws.onopen = () => { ws.send(dataBuffer); ws.close(); }; ws.onerror = (err) => { alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети на iPhone."); console.error(err); }; } 
- </script>
- </body>
- </html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Кухонная Маркировка РБ</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; }
+        h1 { text-align: center; color: #333; font-size: 22px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; }
+        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
+        .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <h1 id="status-title">Загрузка базы полуфабрикатов...</h1>
+    <div class="loading" id="loader">Пожалуйста, подождите...</div>
+    <div class="grid" id="menu"></div>
+
+    <script>
+        // ИСПРАВЛЕНО: Установлен ваш новый текущий IP-адрес принтера в сети Gelato
+        const PRINTER_IP = "192.168.1.15"; 
+        
+        // Ваша актуальная рабочая ссылка Google Apps Script
+        const WEB_APP_URL = "https://google.com"; 
+
+        const menuContainer = document.getElementById('menu');
+        const loader = document.getElementById('loader');
+        const statusTitle = document.getElementById('status-title');
+
+        if (WEB_APP_URL && WEB_APP_URL !== "") {
+            fetch(WEB_APP_URL)
+                .then(response => response.json())
+                .then(products => {
+                    loader.style.display = 'none';
+                    statusTitle.innerText = 'Выберите полуфабрикат для печати';
+                    
+                    products.forEach(prod => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.innerText = prod.name;
+                        tile.onclick = () => generateAndPrint(prod);
+                        menuContainer.appendChild(tile);
+                    });
+                })
+                .catch(error => {
+                    loader.innerText = "Ошибка загрузки базы данных. Проверьте деплой в Google.";
+                    console.error("Ошибка:", error);
+                });
+        }
+
+        function formatDate(date) {
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            const h = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${d}.${m}.${y} ${h}:${min}`;
+        }
+
+        function generateAndPrint(product) {
+            const now = new Date();
+            const exp = new Date(now.getTime() + (parseInt(product.hours) * 60 * 60 * 1000));
+            
+            const timeString = formatDate(now);
+            const expString = formatDate(exp);
+
+            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: product.name,
+                    time: timeString,
+                    hours: product.hours,
+                    quality: "Доброкачественно",
+                    status: "Разрешено"
+                })
+            });
+
+            // 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
+            const tsplCommand = 
+                `SIZE 58 mm, 40 mm\r\n` +
+                `GAP 3 mm, 0 mm\r\n` +
+                `DIRECTION 1\r\n` +
+                `CLS\r\n` +
+                `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` +
+                `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
+                `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
+                `PRINT 1,1\r\n`;
+
+            // Кодируем кириллицу в стандартный формат принтера
+            const encoder = new TextEncoder('windows-1251'); 
+            const dataBuffer = encoder.encode(tsplCommand);
+
+            // Отправляем пакет напрямую на сетевой порт 9100 принтера
+            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
+            ws.binaryType = 'arraybuffer';
+            
+            ws.onopen = () => {
+                ws.send(dataBuffer);
+                ws.close();
+            };
+            
+            ws.onerror = (err) => {
+                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети на iPhone.");
+                console.error(err);
+            };
+        }
+    </script>
+</body>
+</html>
