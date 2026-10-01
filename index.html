@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Кухонная Маркировка РБ</title>
-    <!-- Подключаем внешнюю библиотеку для точной кодировки кириллицы -->
-    <script src="https://cloudflare.com"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; }
         h1 { text-align: center; color: #333; font-size: 22px; }
@@ -22,7 +20,7 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваш рабочий IP принтера
+        // Ваш рабочий IP принтера в сети Gelato
         const PRINTER_IP = "192.168.1.5"; 
         
         // Ваша актуальная рабочая ссылка Google Apps Script
@@ -89,16 +87,18 @@
                 `GAP 3 mm, 0 mm\r\n` +
                 `DIRECTION 1\r\n` +
                 `CLS\r\n` +
-                `CODEPAGE 1251\r\n` + 
                 `TEXT 40,40,"3",0,1,1,1,"${product.name}"\r\n` +
                 `TEXT 40,140,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
                 `TEXT 40,220,"3",0,1,1,1,"Годен до: ${expString}"\r\n` +
                 `PRINT 1,1\r\n`;
 
-            // Кодируем строго в чистый Windows-1251 через iconv
-            const dataBuffer = iconv.encode(tsplCommand, 'win1251');
+            // Исходный способ кодирования через Uint8Array, который работал на ноутбуке
+            const dataBuffer = new Uint8Array(tsplCommand.length);
+            for (let i = 0; i < tsplCommand.length; i++) {
+                dataBuffer[i] = tsplCommand.charCodeAt(i);
+            }
 
-            // 3. Отправка пакета через WebSocket
+            // 3. Отправка пакета напрямую на сетевой порт 9100 принтера через WebSocket
             const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
             ws.binaryType = 'arraybuffer';
             
