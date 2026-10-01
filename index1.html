@@ -20,11 +20,8 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // Установлен ваш актуальный рабочий IP-адрес принтера 192.168.1.15
-        const PRINTER_IP = "192.168.1.5"; 
-        
         // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwACF0Qc752mux6TjD0TiHP3lPNpeYk4PURSGfVn6bE8Ez5Y0yB4Vgv8GKTi-SDYz0jNQ/exec"; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzpBOj8NLlZtj1isAHPSv4ly0vEK3I-1Y_Ye9wj1hHBWsG-QZxDfcvyXhZ7InMov8ZCTA/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -81,34 +78,67 @@
                 })
             });
 
-            // 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
-            const tsplCommand = 
-                `SIZE 58 mm, 40 mm\r\n` +
-                `GAP 3 mm, 0 mm\r\n` +
-                `DIRECTION 1\r\n` +
-                `CLS\r\n` +
-                `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` +
-                `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
-                `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
-                `PRINT 1,1\r\n`;
-
-            // Кодируем кириллицу в стандартный формат принтера
-            const encoder = new TextEncoder('windows-1251'); 
-            const dataBuffer = encoder.encode(tsplCommand);
-
-            // Отправляем пакет напрямую на сетевой порт 9100 принтера
-            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
-            ws.binaryType = 'arraybuffer';
-            
-            ws.onopen = () => {
-                ws.send(dataBuffer);
-                ws.close();
-            };
-            
-            ws.onerror = (err) => {
-                alert("Ошибка связи с принтером Wi-Fi");
-                console.error(err);
-            };
+            // 2. ОТПРАВКА НА ПЕЧАТЬ ЧЕРЕЗ ДИАЛОГОВОЕ ОКНО БРАУЗЕРА
+            // Создаем скрытое временное окно строго под размеры этикетки 58х40 мм
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Печать этикетки</title>
+                    <style>
+                        @page { 
+                            size: 58mm 40mm; 
+                            margin: 0; 
+                        }
+                        body { 
+                            width: 58mm; 
+                            height: 40mm; 
+                            margin: 0; 
+                            padding: 3mm; 
+                            box-sizing: border-box; 
+                            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; 
+                            color: #000;
+                            background: #fff;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            text-align: center;
+                        }
+                        .name { 
+                            font-size: 16px; 
+                            font-weight: bold; 
+                            line-height: 1.2;
+                            margin-bottom: 6px;
+                            width: 100%;
+                            word-wrap: break-word;
+                        }
+                        .info { 
+                            font-size: 11px; 
+                            margin: 2px 0;
+                            white-space: nowrap;
+                        }
+                        .bold-info {
+                            font-size: 12px;
+                            font-weight: bold;
+                            margin-top: 2px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="name">${product.name}</div>
+                    <div class="info">Приготовлено: ${timeString}</div>
+                    <div class="info bold-info">Годен до: ${expString}</div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() { window.close(); }, 300);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         }
     </script>
 </body>
