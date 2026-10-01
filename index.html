@@ -20,7 +20,7 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваш зафиксированный рабочий IP принтера
+        // Ваш рабочий IP принтера
         const PRINTER_IP = "192.168.1.5"; 
         
         // Ваша актуальная рабочая ссылка Google Apps Script
@@ -51,26 +51,6 @@
                 });
         }
 
-        // Функция ручной посимвольной кодировки в Windows-1251 (из рабочей версии)
-        function encodeWin1251(str) {
-            let result = new Uint8Array(str.length);
-            for (let i = 0; i < str.length; i++) {
-                let code = str.charCodeAt(i);
-                if (code >= 0x410 && code <= 0x44F) {
-                    result[i] = code - 0x350; // А-Я, а-я
-                } else if (code === 0x401) {
-                    result[i] = 168; // Ё
-                } else if (code === 0x451) {
-                    result[i] = 184; // ё
-                } else if (code < 128) {
-                    result[i] = code; // Английские буквы, цифры, знаки препинания
-                } else {
-                    result[i] = 63; // Символ "?" для неопознанных знаков
-                }
-            }
-            return result;
-        }
-
         function formatDate(date) {
             const d = String(date.getDate()).padStart(2, '0');
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -87,7 +67,7 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // 1. Фиксация в Журнале Бракеража РБ
+            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -101,7 +81,7 @@
                 })
             });
 
-            // 2. Восстановленная разметка оригинального стикера 58х40 мм
+            // 2. Оригинальные TSPL-команды. Координаты TEXT сдвинуты влево (40, X), чтобы текст не вылетал за поля 58х40
             const tsplCommand = 
                 `SIZE 58 mm, 40 mm\r\n` +
                 `GAP 3 mm, 0 mm\r\n` +
@@ -113,10 +93,11 @@
                 `TEXT 40,220,"3",0,1,1,1,"Годен до: ${expString}"\r\n` +
                 `PRINT 1,1\r\n`;
 
-            // Кодируем через правильную функцию
-            const dataBuffer = encodeWin1251(tsplCommand);
+            // Оригинальный способ кодирования, который не ломает WebSocket
+            const encoder = new TextEncoder('windows-1251'); 
+            const dataBuffer = encoder.encode(tsplCommand);
 
-            // 3. Отправка через оригинальный WebSocket
+            // 3. Отправка пакета напрямую на сетевой порт 9100 принтера
             const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
             ws.binaryType = 'arraybuffer';
             
@@ -126,7 +107,7 @@
             };
             
             ws.onerror = (err) => {
-                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети.");
+                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети на iPhone.");
                 console.error(err);
             };
         }
