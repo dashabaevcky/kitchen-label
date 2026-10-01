@@ -20,7 +20,7 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // АКТУАЛЬНЫЙ IP ПРИНТЕРА ИЗ ЧЕКА САМОТЕСТИРОВАНИЯ
+        // Ваш зафиксированный рабочий IP принтера
         const PRINTER_IP = "192.168.1.5"; 
         
         // Ваша актуальная рабочая ссылка Google Apps Script
@@ -51,6 +51,26 @@
                 });
         }
 
+        // Функция ручной посимвольной кодировки в Windows-1251 (из рабочей версии)
+        function encodeWin1251(str) {
+            let result = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) {
+                let code = str.charCodeAt(i);
+                if (code >= 0x410 && code <= 0x44F) {
+                    result[i] = code - 0x350; // А-Я, а-я
+                } else if (code === 0x401) {
+                    result[i] = 168; // Ё
+                } else if (code === 0x451) {
+                    result[i] = 184; // ё
+                } else if (code < 128) {
+                    result[i] = code; // Английские буквы, цифры, знаки препинания
+                } else {
+                    result[i] = 63; // Символ "?" для неопознанных знаков
+                }
+            }
+            return result;
+        }
+
         function formatDate(date) {
             const d = String(date.getDate()).padStart(2, '0');
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -67,7 +87,7 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
+            // 1. Фиксация в Журнале Бракеража РБ
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -81,24 +101,22 @@
                 })
             });
 
-            // 2. Настройка кодировки принтера и бинарные команды под стикер 58мм х 40мм
-            // CODEPAGE 1251 принудительно переключает принтер на русский язык перед выводом текста
+            // 2. Восстановленная разметка оригинального стикера 58х40 мм
             const tsplCommand = 
                 `SIZE 58 mm, 40 mm\r\n` +
                 `GAP 3 mm, 0 mm\r\n` +
                 `DIRECTION 1\r\n` +
                 `CLS\r\n` +
                 `CODEPAGE 1251\r\n` + 
-                `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` +
-                `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
-                `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
+                `TEXT 40,40,"3",0,1,1,1,"${product.name}"\r\n` +
+                `TEXT 40,140,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
+                `TEXT 40,220,"3",0,1,1,1,"Годен до: ${expString}"\r\n` +
                 `PRINT 1,1\r\n`;
 
-            // Кодируем русский текст в стандарт Windows-1251
-            const encoder = new TextEncoder('windows-1251'); 
-            const dataBuffer = encoder.encode(tsplCommand);
+            // Кодируем через правильную функцию
+            const dataBuffer = encodeWin1251(tsplCommand);
 
-            // 3. Отправляем ЧИСТЫЕ бинарные данные через WebSocket (без лишних HTTP заголовков)
+            // 3. Отправка через оригинальный WebSocket
             const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
             ws.binaryType = 'arraybuffer';
             
