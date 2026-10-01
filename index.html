@@ -20,10 +20,10 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваш актуальный IP принтера в сети Gelato
+        // АКТУАЛЬНЫЙ IP ПРИНТЕРА ИЗ ЧЕКА САМОТЕСТИРОВАНИЯ
         const PRINTER_IP = "192.168.1.5"; 
         
-        // Ваша рабочая ссылка Google Apps Script
+        // Ваша актуальная рабочая ссылка Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzpBOj8NLlZtj1isAHPSv4ly0vEK3I-1Y_Ye9wj1hHBWsG-QZxDfcvyXhZ7InMov8ZCTA/exec"; 
 
         const menuContainer = document.getElementById('menu');
@@ -81,34 +81,36 @@
                 })
             });
 
-            // 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
+            // 2. Настройка кодировки принтера и бинарные команды под стикер 58мм х 40мм
+            // CODEPAGE 1251 принудительно переключает принтер на русский язык перед выводом текста
             const tsplCommand = 
                 `SIZE 58 mm, 40 mm\r\n` +
                 `GAP 3 mm, 0 mm\r\n` +
                 `DIRECTION 1\r\n` +
                 `CLS\r\n` +
+                `CODEPAGE 1251\r\n` + 
                 `TEXT 290,40,"3",0,1,1,2,"${product.name}"\r\n` +
                 `TEXT 40,160,"3",0,1,1,1,"Приготовлено: ${timeString}"\r\n` +
                 `TEXT 40,240,"3",0,1,1,2,"Годен до: ${expString}"\r\n` +
                 `PRINT 1,1\r\n`;
 
-            // Кодируем кириллицу в стандартный формат принтера Windows-1251
+            // Кодируем русский текст в стандарт Windows-1251
             const encoder = new TextEncoder('windows-1251'); 
             const dataBuffer = encoder.encode(tsplCommand);
 
-            // ЗАМЕНЕНО: Надежный сетевой fetch-запрос вместо WebSocket для обхода блокировок портов
-            fetch(`http://${PRINTER_IP}:9100`, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: dataBuffer
-            })
-            .then(() => {
-                console.log("Команда печати успешно отправлена.");
-            })
-            .catch((err) => {
-                alert("Ошибка связи с принтером Wi-Fi. Проверьте подключение к сети Gelato.");
+            // 3. Отправляем ЧИСТЫЕ бинарные данные через WebSocket (без лишних HTTP заголовков)
+            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
+            ws.binaryType = 'arraybuffer';
+            
+            ws.onopen = () => {
+                ws.send(dataBuffer);
+                ws.close();
+            };
+            
+            ws.onerror = (err) => {
+                alert("Ошибка связи с принтером Wi-Fi. Проверьте статус сети.");
                 console.error(err);
-            });
+            };
         }
     </script>
 </body>
