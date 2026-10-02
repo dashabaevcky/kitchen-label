@@ -34,7 +34,7 @@
 
     <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyeD5gz8G1hLx9c2LL2BLHzXiQRB7iij_hHJEYRWXryezNI136v4xI2niBQdO-Woz2qPg/exec"; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-raWnvcKlrV56n_8zWq4Q8WqRM-JEqe_lCgD6MmcJ6Sq7YkuILdM-4GFMyF_-XrJDIw/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -149,8 +149,6 @@
         function calculateExpiryDate(shelfLifeStr) {
             const now = new Date();
             if (!shelfLifeStr) return now;
-            
-            // Замена запятых на точки для дробных сроков и очистка пробелов
             const cleanStr = shelfLifeStr.toLowerCase().replace(',', '.').replace(/\s+/g, '');
             const number = parseFloat(cleanStr);
 
@@ -194,7 +192,6 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // Фиксация в Журнале Бракеража
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -208,7 +205,6 @@
                 })
             });
 
-            // Вызов окна печати 58х40 мм
             const printWindow = window.open('', '_blank');
             if (printWindow) {
                 printWindow.document.write(`
@@ -229,9 +225,9 @@
                         </style>
                     </head>
                     <body>
-                        <div class="name">${product.name}</div>
-                        <div class="info">Приготовлено: ${timeString}</div>
-                        <div class="info bold-info">Годен до: ${expString}</div>
+                        <div class="name">\${product.name}</div>
+                        <div class="info">Приготовлено: \${timeString}</div>
+                        <div class="info bold-info">Годен до: \${expString}</div>
                         <script>
                             window.onload = function() {
                                 window.print();
