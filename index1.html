@@ -14,8 +14,8 @@
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 15px; }
         .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 70px; }
         .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
-        .tile.main-group-tile { border-color: #10b981; background: #f0fdf4; color: #065f46; font-size: 18px; } /* Холодильники */
-        .tile.sub-group-tile { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }  /* Полки */
+        .tile.main-group-tile { border-color: #10b981; background: #f0fdf4; color: #065f46; font-size: 18px; } 
+        .tile.sub-group-tile { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }  
         .tile .shelf-life-badge { font-size: 12px; color: #ff5a5a; margin-top: 8px; font-weight: normal; background: #ffebeb; padding: 2px 8px; border-radius: 4px; }
         .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
     </style>
@@ -29,12 +29,12 @@
         <div class="current-path" id="path-display">Загрузка...</div>
     </div>
     
-    <div class="loading" id="loader">Пожалуйста, подождите, обновляем структуру меню...</div>
+    <div class="loading" id="loader">Пожалуйста, подождите, строим меню по группам...</div>
     <div class="grid" id="menu"></div>
 
     <script>
-        // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT ПОСЛЕ НОВОГО РАЗВЕРТЫВАНИЯ
-        const WEB_APP_URL = "https://google.com"; 
+        // ИСПРАВЛЕНО: Сюда вставлена ваша точная рабочая ссылка Google Apps Script
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbztnRZv61XOJvY6PRSKUdhEn1iaCH-MyJ-m4POLIc9_wa72Y1EsgY4Mrnfxv_DvGt8GuA/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -42,12 +42,12 @@
         const backButton = document.getElementById('back-button');
         const pathDisplay = document.getElementById('path-display');
 
-        let fullDatabase = []; // Древовидная структура ПФ
-        let currentLevel = "main"; // "main", "sub", "products"
+        let fullDatabase = []; 
+        let currentLevel = "main"; 
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
-        // Загрузка данных из вашей таблицы
+        // ОДНОКРАТНАЯ ЧИСТАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -57,12 +57,12 @@
                     renderMenu();
                 })
                 .catch(error => {
-                    loader.innerText = "Ошибка загрузки данных. Проверьте развертывание скрипта (Web App) и доступ 'Все'.";
+                    loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание.";
                     console.error("Ошибка:", error);
                 });
         }
 
-        // Отрисовка экранов
+        // КОРРЕКТНАЯ ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ НА КУХНЕ
         function renderMenu() {
             menuContainer.innerHTML = "";
             
@@ -101,7 +101,7 @@
                 });
 
             } else if (currentLevel === "products") {
-                statusTitle.innerText = "Выберите полуфабрикат";
+                statusTitle.innerText = "Выберите полуфабрикат для печати";
                 backButton.style.display = "block";
                 pathDisplay.innerText = `${selectedMainGroup.mainGroup} ➔ ${selectedSubGroup.subGroup}`;
 
@@ -115,7 +115,6 @@
             }
         }
 
-        // Кнопка "Назад"
         function goBack() {
             if (currentLevel === "products") {
                 currentLevel = "sub";
@@ -125,7 +124,6 @@
             renderMenu();
         }
 
-        // Умный калькулятор конечной даты для интерфейса
         function calculateExpiryDate(shelfLifeStr) {
             const now = new Date();
             const cleanStr = shelfLifeStr.toLowerCase().replace(/\s+/g, '');
@@ -146,7 +144,7 @@
                 expDate.setFullYear(now.getFullYear() + number);
                 return expDate;
             }
-            return new Date(now.getTime() + (number * 60 * 60 * 1000)); // по умолчанию часы
+            return new Date(now.getTime() + (number * 60 * 60 * 1000));
         }
 
         function formatDate(date) {
@@ -165,7 +163,7 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
+            // Фиксация в Журнале Бракеража
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -173,13 +171,13 @@
                 body: JSON.stringify({
                     name: product.name,
                     time: timeString,
-                    shelfLife: product.shelfLife, // Передаем строку "3сут" для скрипта
+                    shelfLife: product.shelfLife,
                     quality: "Доброкачественно",
                     status: "Разрешено"
                 })
             });
 
-            // 2. Генерация диалогового окна window.print() под размер этикетки 58х40 мм
+            // Вызов окна печати 58х40 мм
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`
                 <html>
@@ -199,3 +197,15 @@
                     </style>
                 </head>
                 <body>
+                    <div class="name">${product.name}</div>
+                    <div class="info">Приготовлено: ${timeString}</div>
+                    <div class="info bold-info">Годен до: ${expString}</div>
+                    <script>
+window.onload = function() {
+window.print();
+setTimeout(function() { window.close(); }, 300);
+};
+</script>
+`);
+printWindow.document.close();
+}
