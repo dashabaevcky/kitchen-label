@@ -6,46 +6,147 @@
     <title>Кухонная Маркировка РБ</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; }
-        h1 { text-align: center; color: #333; font-size: 22px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; }
-        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #333; font-size: 22px; margin-bottom: 5px; }
+        .nav-panel { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; min-height: 40px; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .back-btn { background: #4f46e5; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; font-size: 14px; }
+        .back-btn:active { background: #3730a3; }
+        .current-path { font-size: 14px; color: #666; font-weight: 500; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 15px; }
+        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 70px; }
         .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
+        .tile.main-group-tile { border-color: #10b981; background: #f0fdf4; color: #065f46; font-size: 18px; } /* Холодильники */
+        .tile.sub-group-tile { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }  /* Полки */
+        .tile .shelf-life-badge { font-size: 12px; color: #ff5a5a; margin-top: 8px; font-weight: normal; background: #ffebeb; padding: 2px 8px; border-radius: 4px; }
         .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <h1 id="status-title">Загрузка базы полуфабрикатов...</h1>
-    <div class="loading" id="loader">Пожалуйста, подождите...</div>
+    
+    <div class="nav-panel">
+        <button class="back-btn" id="back-button" onclick="goBack()">⬅ Назад</button>
+        <div class="current-path" id="path-display">Загрузка...</div>
+    </div>
+    
+    <div class="loading" id="loader">Пожалуйста, подождите, обновляем структуру меню...</div>
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzvG7DkzezypAmyeL6NJS4O24aQjCK9I7QNaD0o5DHc-c9LMnCclmbKpsNHltao3hPEOQ/exec"; 
+        // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT ПОСЛЕ НОВОГО РАЗВЕРТЫВАНИЯ
+        const WEB_APP_URL = "https://google.com"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
         const statusTitle = document.getElementById('status-title');
+        const backButton = document.getElementById('back-button');
+        const pathDisplay = document.getElementById('path-display');
 
+        let fullDatabase = []; // Древовидная структура ПФ
+        let currentLevel = "main"; // "main", "sub", "products"
+        let selectedMainGroup = null;
+        let selectedSubGroup = null;
+
+        // Загрузка данных из вашей таблицы
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
-                .then(products => {
+                .then(data => {
+                    fullDatabase = data;
                     loader.style.display = 'none';
-                    statusTitle.innerText = 'Выберите полуфабрикат для печати';
-                    
-                    products.forEach(prod => {
-                        const tile = document.createElement('div');
-                        tile.className = 'tile';
-                        tile.innerText = prod.name;
-                        tile.onclick = () => generateAndPrint(prod);
-                        menuContainer.appendChild(tile);
-                    });
+                    renderMenu();
                 })
                 .catch(error => {
-                    loader.innerText = "Ошибка загрузки базы данных. Проверьте деплой в Google.";
+                    loader.innerText = "Ошибка загрузки данных. Проверьте развертывание скрипта (Web App) и доступ 'Все'.";
                     console.error("Ошибка:", error);
                 });
+        }
+
+        // Отрисовка экранов
+        function renderMenu() {
+            menuContainer.innerHTML = "";
+            
+            if (currentLevel === "main") {
+                statusTitle.innerText = "Выберите зону хранения";
+                backButton.style.display = "none";
+                pathDisplay.innerText = "Главное меню";
+
+                fullDatabase.forEach(main => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile main-group-tile';
+                    tile.innerText = main.mainGroup;
+                    tile.onclick = () => {
+                        selectedMainGroup = main;
+                        currentLevel = "sub";
+                        renderMenu();
+                    };
+                    menuContainer.appendChild(tile);
+                });
+
+            } else if (currentLevel === "sub") {
+                statusTitle.innerText = "Выберите полку или категорию";
+                backButton.style.display = "block";
+                pathDisplay.innerText = selectedMainGroup.mainGroup;
+
+                selectedMainGroup.subGroups.forEach(sub => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile sub-group-tile';
+                    tile.innerText = sub.subGroup;
+                    tile.onclick = () => {
+                        selectedSubGroup = sub;
+                        currentLevel = "products";
+                        renderMenu();
+                    };
+                    menuContainer.appendChild(tile);
+                });
+
+            } else if (currentLevel === "products") {
+                statusTitle.innerText = "Выберите полуфабрикат";
+                backButton.style.display = "block";
+                pathDisplay.innerText = `${selectedMainGroup.mainGroup} ➔ ${selectedSubGroup.subGroup}`;
+
+                selectedSubGroup.products.forEach(prod => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.innerHTML = `<div>${prod.name}</div><div class="shelf-life-badge">Срок: ${prod.shelfLife}</div>`;
+                    tile.onclick = () => generateAndPrint(prod);
+                    menuContainer.appendChild(tile);
+                });
+            }
+        }
+
+        // Кнопка "Назад"
+        function goBack() {
+            if (currentLevel === "products") {
+                currentLevel = "sub";
+            } else if (currentLevel === "sub") {
+                currentLevel = "main";
+            }
+            renderMenu();
+        }
+
+        // Умный калькулятор конечной даты для интерфейса
+        function calculateExpiryDate(shelfLifeStr) {
+            const now = new Date();
+            const cleanStr = shelfLifeStr.toLowerCase().replace(/\s+/g, '');
+            const number = parseInt(cleanStr);
+
+            if (isNaN(number)) return now;
+
+            if (cleanStr.includes('ч')) {
+                return new Date(now.getTime() + (number * 60 * 60 * 1000));
+            } else if (cleanStr.includes('сут')) {
+                return new Date(now.getTime() + (number * 24 * 60 * 60 * 1000));
+            } else if (cleanStr.includes('мес')) {
+                const expDate = new Date(now);
+                expDate.setMonth(now.getMonth() + number);
+                return expDate;
+            } else if (cleanStr.includes('г') || cleanStr.includes('год')) {
+                const expDate = new Date(now);
+                expDate.setFullYear(now.getFullYear() + number);
+                return expDate;
+            }
+            return new Date(now.getTime() + (number * 60 * 60 * 1000)); // по умолчанию часы
         }
 
         function formatDate(date) {
@@ -59,7 +160,7 @@
 
         function generateAndPrint(product) {
             const now = new Date();
-            const exp = new Date(now.getTime() + (parseInt(product.hours) * 60 * 60 * 1000));
+            const exp = calculateExpiryDate(product.shelfLife);
             
             const timeString = formatDate(now);
             const expString = formatDate(exp);
@@ -72,74 +173,29 @@
                 body: JSON.stringify({
                     name: product.name,
                     time: timeString,
-                    hours: product.hours,
+                    shelfLife: product.shelfLife, // Передаем строку "3сут" для скрипта
                     quality: "Доброкачественно",
                     status: "Разрешено"
                 })
             });
 
-            // 2. ОТПРАВКА НА ПЕЧАТЬ ЧЕРЕЗ ДИАЛОГОВОЕ ОКНО БРАУЗЕРА
-            // Создаем скрытое временное окно строго под размеры этикетки 58х40 мм
+            // 2. Генерация диалогового окна window.print() под размер этикетки 58х40 мм
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`
                 <html>
                 <head>
-                    <title>Печать этикетки</title>
+                    <title>Печать маркировки</title>
                     <style>
-                        @page { 
-                            size: 58mm 40mm; 
-                            margin: 0; 
-                        }
+                        @page { size: 58mm 40mm; margin: 0; }
                         body { 
-                            width: 58mm; 
-                            height: 40mm; 
-                            margin: 0; 
-                            padding: 3mm; 
-                            box-sizing: border-box; 
-                            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; 
-                            color: #000;
-                            background: #fff;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            align-items: center;
-                            text-align: center;
+                            width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
+                            box-sizing: border-box; font-family: Arial, sans-serif; 
+                            color: #000; background: #fff; display: flex; flex-direction: column;
+                            justify-content: center; align-items: center; text-align: center;
                         }
-                        .name { 
-                            font-size: 16px; 
-                            font-weight: bold; 
-                            line-height: 1.2;
-                            margin-bottom: 6px;
-                            width: 100%;
-                            word-wrap: break-word;
-                        }
-                        .info { 
-                            font-size: 11px; 
-                            margin: 2px 0;
-                            white-space: nowrap;
-                        }
-                        .bold-info {
-                            font-size: 12px;
-                            font-weight: bold;
-                            margin-top: 2px;
-                        }
+                        .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+                        .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+                        .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
                     </style>
                 </head>
                 <body>
-                    <div class="name">${product.name}</div>
-                    <div class="info">Приготовлено: ${timeString}</div>
-                    <div class="info bold-info">Годен до: ${expString}</div>
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                            setTimeout(function() { window.close(); }, 300);
-                        };
-                    <\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        }
-    </script>
-</body>
-</html>
