@@ -34,7 +34,7 @@
 
     <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw-IulJWcnQAvcEto2pKFMNNtyKbqtz2g1L7_mXNbxBCPDvzZAIEyo9N2V5OKPfu3P4/exec"; 
+        const WEB_APP_URL = "https://google.com"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -61,7 +61,7 @@
                 });
         }
 
-        // НАСТРОЕННАЯ ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ
+        // ИСПРАВЛЕННАЯ ЛОГИКА СИНТАКСИСА МАССИВОВ С АВТОПРОПУСКОМ
         function renderMenu() {
             menuContainer.innerHTML = "";
             
@@ -76,7 +76,7 @@
                     tile.innerText = main.mainGroup;
                     tile.onclick = () => {
                         selectedMainGroup = main;
-                        // АВТОПРОПУСК: если подгруппа всего одна и она виртуальная ("Без подгруппы"), переходим сразу к товарам
+                        // ИСПРАВЛЕНО: Правильный синтаксис проверки первого элемента массива [0]
                         if (main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
                             selectedSubGroup = main.subGroups[0];
                             currentLevel = "products";
@@ -109,7 +109,6 @@
                 statusTitle.innerText = "Выберите полуфабрикат для печати";
                 backButton.style.display = "block";
                 
-                // Корректное отображение хлебных крошек
                 if (selectedSubGroup.subGroup === "Без подгруппы") {
                     pathDisplay.innerText = selectedMainGroup.mainGroup;
                 } else {
@@ -128,7 +127,6 @@
 
         function goBack() {
             if (currentLevel === "products") {
-                // Если мы зашли в продукты напрямую (минуя подгруппы), кнопка Назад вернет в Главное меню
                 if (selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
                     currentLevel = "main";
                 } else {
@@ -204,7 +202,7 @@
                         body { 
                             width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
                             box-sizing: border-box; font-family: Arial, sans-serif; 
-color: #000; background: #fff; display: flex; flex-direction: column;
+                            color: #000; background: #fff; display: flex; flex-direction: column;
 justify-content: center; align-items: center; text-align: center;
 }
 .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
