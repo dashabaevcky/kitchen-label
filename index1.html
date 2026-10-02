@@ -32,7 +32,7 @@
     <div class="loading" id="loader">Пожалуйста, подождите, строим меню по группам...</div>
     <div class="grid" id="menu"></div>
 
-        <script>
+    <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKluMovUYHjSuaw9VEwL74-nKYeEEzhYuShXc0bYJzDh6pM0SZpYZxm4szKt1XVwBbIA/exec"; 
 
@@ -47,7 +47,7 @@
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
-        // Чистая загрузка данных без сбоев
+        // Чистая загрузка базы данных
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -62,7 +62,7 @@
                 });
         }
 
-        // Защищенная отрисовка интерфейса поваров
+        // Отрисовка интерфейса
         function renderMenu() {
             menuContainer.innerHTML = "";
             
@@ -78,7 +78,7 @@
                         tile.innerText = main.mainGroup || "Без названия";
                         tile.onclick = () => {
                             selectedMainGroup = main;
-                            // ИСПРАВЛЕНО: Безопасный автоматический переход без риска бесконечного цикла
+                            // Проверка на виртуальную подгруппу без зацикливания
                             if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
                                 selectedSubGroup = main.subGroups[0];
                                 currentLevel = "products";
@@ -180,7 +180,6 @@
             return `${d}.${m}.${y} ${h}:${min}`;
         }
 
-        // ИСПРАВЛЕНО: Восстановлена целостность разметки и системные вызовы печати внутри фрейма
         function generateAndPrint(product) {
             const now = new Date();
             const exp = calculateExpiryDate(product.shelfLife);
@@ -202,40 +201,43 @@
                 })
             });
 
+// Вызов окна печати 58х40 мм
             // Вызов окна печати 58х40 мм
             const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                <head>
-                    <title>Печать маркировки</title>
-                    <style>
-                        @page { size: 58mm 40mm; margin: 0; }
-                        body { 
-                            width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
-                            box-sizing: border-box; font-family: Arial, sans-serif; 
-                            color: #000; background: #fff; display: flex; flex-direction: column;
-                            justify-content: center; align-items: center; text-align: center;
-                        }
-                        .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
-                        .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
-                        .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="name">\${product.name}</div>
-                    <div class="info">Приготовлено: \${timeString}</div>
-                    <div class="info bold-info">Годен до: \${expString}</div>
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                        };
-                        window.onafterprint = function() {
-                            window.close();
-                        };
-                    <\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+            if (printWindow) {
+                // ИСПРАВЛЕНО: Добавлены обязательные косые кавычки ` ` и убраны экранирующие слэши у переменных
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Печать маркировки</title>
+                        <style>
+                            @page { size: 58mm 40mm; margin: 0; }
+                            body { 
+                                width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
+                                box-sizing: border-box; font-family: Arial, sans-serif; 
+                                color: #000; background: #fff; display: flex; flex-direction: column;
+                                justify-content: center; align-items: center; text-align: center;
+                            }
+                            .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+                            .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+                            .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="name">${product.name}</div>
+                        <div class="info">Приготовлено: ${timeString}</div>
+                        <div class="info bold-info">Годен до: ${expString}</div>
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                            };
+                            window.onafterprint = function() {
+                                window.close();
+                            };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
         }
-    </script>
