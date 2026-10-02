@@ -6,49 +6,171 @@
     <title>Кухонная Маркировка РБ</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background: #f4f4f9; padding: 20px; margin: 0; user-select: none; }
-        h1 { text-align: center; color: #333; font-size: 22px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; }
-        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #333; font-size: 22px; margin-bottom: 5px; }
+        .nav-panel { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; min-height: 40px; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .back-btn { background: #4f46e5; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; font-size: 14px; }
+        .back-btn:active { background: #3730a3; }
+        .current-path { font-size: 14px; color: #666; font-weight: 500; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 15px; }
+        .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 70px; }
         .tile:active { transform: scale(0.95); background: #eef2ff; border-color: #4f46e5; }
+        .tile.main-group-tile { border-color: #10b981; background: #f0fdf4; color: #065f46; font-size: 18px; } 
+        .tile.sub-group-tile { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }  
+        .tile .shelf-life-badge { font-size: 12px; color: #ff5a5a; margin-top: 8px; font-weight: normal; background: #ffebeb; padding: 2px 8px; border-radius: 4px; }
         .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <h1 id="status-title">Загрузка базы полуфабрикатов...</h1>
-    <div class="loading" id="loader">Пожалуйста, подождите...</div>
+    
+    <div class="nav-panel">
+        <button class="back-btn" id="back-button" onclick="goBack()">⬅ Назад</button>
+        <div class="current-path" id="path-display">Загрузка...</div>
+    </div>
+    
+    <div class="loading" id="loader">Пожалуйста, подождите, строим меню по группам...</div>
     <div class="grid" id="menu"></div>
 
     <script>
-        // ИСПРАВЛЕНО: Установлен реальный IP-адрес вашего принтера из чека (192.168.1.15)
-        const PRINTER_IP = "192.168.1.5"; 
-        
-        // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzpBOj8NLlZtj1isAHPSv4ly0vEK3I-1Y_Ye9wj1hHBWsG-QZxDfcvyXhZ7InMov8ZCTA/exec"; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7kfQwOboF8MUzWYo4s8mU0UBrwk6bCKdg7nY4GguRCymhDu5_dPhHl-laipb2cZTddg/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
         const statusTitle = document.getElementById('status-title');
+        const backButton = document.getElementById('back-button');
+        const pathDisplay = document.getElementById('path-display');
+
+        let fullDatabase = []; 
+        let currentLevel = "main"; 
+        let selectedMainGroup = null;
+        let selectedSubGroup = null;
 
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
-                .then(products => {
+                .then(data => {
+                    fullDatabase = data;
                     loader.style.display = 'none';
-                    statusTitle.innerText = 'Выберите полуфабрикат для печати';
-                    
-                    products.forEach(prod => {
-                        const tile = document.createElement('div');
-                        tile.className = 'tile';
-                        tile.innerText = prod.name;
-                        tile.onclick = () => generateAndPrint(prod);
-                        menuContainer.appendChild(tile);
-                    });
+                    renderMenu();
                 })
                 .catch(error => {
-                    loader.innerText = "Ошибка загрузки базы данных. Проверьте деплой в Google.";
+                    loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание.";
                     console.error("Ошибка:", error);
                 });
+        }
+
+        function renderMenu() {
+            menuContainer.innerHTML = "";
+            
+            if (currentLevel === "main") {
+                statusTitle.innerText = "Выберите зону хранения";
+                backButton.style.display = "none";
+                pathDisplay.innerText = "Главное меню";
+
+                if (Array.isArray(fullDatabase)) {
+                    fullDatabase.forEach(main => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile main-group-tile';
+                        tile.innerText = main.mainGroup || "Без названия";
+                        tile.onclick = () => {
+                            selectedMainGroup = main;
+                            if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
+                                selectedSubGroup = main.subGroups[0];
+                                currentLevel = "products";
+                            } else {
+                                currentLevel = "sub";
+                            }
+                            renderMenu();
+                        };
+                        menuContainer.appendChild(tile);
+                    });
+                }
+
+            } else if (currentLevel === "sub") {
+                statusTitle.innerText = "Выберите категорию или полку";
+                backButton.style.display = "block";
+                pathDisplay.innerText = selectedMainGroup ? selectedMainGroup.mainGroup : "";
+
+                if (selectedMainGroup && Array.isArray(selectedMainGroup.subGroups)) {
+                    selectedMainGroup.subGroups.forEach(sub => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile sub-group-tile';
+                        tile.innerText = sub.subGroup || "Общее";
+                        tile.onclick = () => {
+                            selectedSubGroup = sub;
+                            currentLevel = "products";
+                            renderMenu();
+                        };
+                        menuContainer.appendChild(tile);
+                    });
+                }
+
+            } else if (currentLevel === "products") {
+                statusTitle.innerText = "Выберите полуфабрикат для печати";
+                backButton.style.display = "block";
+                
+                if (selectedSubGroup) {
+                    if (selectedSubGroup.subGroup === "Без подгруппы") {
+                        pathDisplay.innerText = selectedMainGroup ? selectedMainGroup.mainGroup : "";
+                    } else {
+                        pathDisplay.innerText = `${selectedMainGroup ? selectedMainGroup.mainGroup : ""} ➔ ${selectedSubGroup.subGroup}`;
+                    }
+
+                    if (Array.isArray(selectedSubGroup.products)) {
+                        selectedSubGroup.products.forEach(prod => {
+                            const tile = document.createElement('div');
+                            tile.className = 'tile';
+                            tile.innerHTML = `<div>${prod.name}</div><div class="shelf-life-badge">Срок: ${prod.shelfLife}</div>`;
+                            tile.onclick = () => generateAndPrint(prod);
+                            menuContainer.appendChild(tile);
+                        });
+                    }
+                }
+            }
+        }
+
+        function goBack() {
+            if (currentLevel === "products") {
+                if (selectedMainGroup && selectedMainGroup.subGroups && selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
+                    currentLevel = "main";
+                } else {
+                    currentLevel = "sub";
+                }
+            } else if (currentLevel === "sub") {
+                currentLevel = "main";
+            }
+            renderMenu();
+        }
+
+        function calculateExpiryDate(shelfLifeStr) {
+            const now = new Date();
+            if (!shelfLifeStr) return now;
+            const cleanStr = shelfLifeStr.toLowerCase().replace(',', '.').replace(/\s+/g, '');
+            const number = parseFloat(cleanStr);
+
+            if (isNaN(number)) return now;
+
+            if (cleanStr.includes('ч')) {
+                return new Date(now.getTime() + (number * 60 * 60 * 1000));
+            } else if (cleanStr.includes('сут')) {
+                return new Date(now.getTime() + (number * 24 * 60 * 60 * 1000));
+            } else if (cleanStr.includes('мес')) {
+                const expDate = new Date(now);
+                const months = Math.floor(number);
+                const days = Math.round((number - months) * 30);
+                expDate.setMonth(now.getMonth() + months);
+                expDate.setDate(expDate.getDate() + days);
+                return expDate;
+            } else if (cleanStr.includes('г') || cleanStr.includes('год')) {
+                const expDate = new Date(now);
+                const years = Math.floor(number);
+                const days = Math.round((number - years) * 365);
+                expDate.setFullYear(now.getFullYear() + years);
+                expDate.setDate(expDate.getDate() + days);
+                return expDate;
+            }
+            return new Date(now.getTime() + (number * 60 * 60 * 1000));
         }
 
         function formatDate(date) {
@@ -60,35 +182,13 @@
             return `${d}.${m}.${y} ${h}:${min}`;
         }
 
-        // Заводская функция перекодирования букв в стандарт Windows-1251 (CP1251)
-        // Гарантирует правильный русский текст без кракозябр и сохраняет разметку 58х40 мм
-        function strToCp1251Bytes(str) {
-            const bytes = new Uint8Array(str.length);
-            for (let i = 0; i < str.length; i++) {
-                const code = str.charCodeAt(i);
-                if (code < 128) {
-                    bytes[i] = code; // Английские символы, цифры, системные \r и \n
-                } else if (code >= 0x0410 && code <= 0x044F) {
-                    bytes[i] = code - 0x0350; // Русский алфавит А-Я, а-я
-                } else if (code === 0x0401) {
-                    bytes[bytes.length - 1] = 0xA8; // Буква Ё
-                } else if (code === 0x0451) {
-                    bytes[bytes.length - 1] = 0xB8; // Буква ё
-                } else {
-                    bytes[i] = 63; // Символ "?"
-                }
-            }
-            return bytes;
-        }
-
         function generateAndPrint(product) {
             const now = new Date();
-            const exp = new Date(now.getTime() + (parseInt(product.hours) * 60 * 60 * 1000));
+            const exp = calculateExpiryDate(product.shelfLife);
             
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // 1. Фиксация в Журнале Бракеража РБ (Google Таблица)
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -96,41 +196,48 @@
                 body: JSON.stringify({
                     name: product.name,
                     time: timeString,
-                    hours: product.hours,
+                    shelfLife: product.shelfLife,
                     quality: "Доброкачественно",
                     status: "Разрешено"
                 })
             });
 
-            // 2. Формируем бинарные TSPL-команды под размер этикетки 58мм х 40мм для процессора Xprinter
-            // Координаты выставлены (40, X), чтобы текст зашел в границы и не съезжал
-            const tsplCommand = 
-                "SIZE 58 mm, 40 mm\r\n" +
-                "GAP 3 mm, 0 mm\r\n" +
-                "DIRECTION 1\r\n" +
-                "CLS\r\n" +
-                "CODEPAGE 1251\r\n" + 
-                "TEXT 40,40,\"3\",0,1,1,1,\"" + product.name + "\"\r\n" +
-                "TEXT 40,140,\"3\",0,1,1,1,\"Приготовлено: " + timeString + "\"\r\n" +
-                "TEXT 40,240,\"3\",0,1,1,1,\"Годен до: " + expString + "\"\r\n" +
-                "PRINT 1,1\r\n";
-
-            // Переводим команду в правильный байтовый поток Windows-1251
-            const dataBuffer = strToCp1251Bytes(tsplCommand);
-
-            // 3. Отправляем пакет напрямую на сетевой порт 9100 принтера через оригинальный WebSocket
-            const ws = new WebSocket(`ws://${PRINTER_IP}:9100`);
-            ws.binaryType = 'arraybuffer';
-            
-            ws.onopen = () => {
-                ws.send(dataBuffer);
-                ws.close();
-            };
-            
-            ws.onerror = (err) => {
-                alert("Ошибка связи с принтером Wi-Fi. Убедитесь, что устройство подключено к сети Gelato.");
-                console.error(err);
-            };
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Печать маркировки</title>
+                        <style>
+                            @page { size: 58mm 40mm; margin: 0; }
+                            body { 
+                                width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
+                                box-sizing: border-box; font-family: Arial, sans-serif; 
+                                color: #000; background: #fff; display: flex; flex-direction: column;
+                                justify-content: center; align-items: center; text-align: center;
+                            }
+                            .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+                            .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+                            .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="name">\${product.name}</div>
+                        <div class="info">Приготовлено: \${timeString}</div>
+                        <div class="info bold-info">Годен до: \--\${expString}</div>
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                            };
+                            window.onafterprint = function() {
+                                window.close();
+                            };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
         }
     </script>
 </body>
