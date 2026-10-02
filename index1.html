@@ -34,7 +34,7 @@
 
     <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-raWnvcKlrV56n_8zWq4Q8WqRM-JEqe_lCgD6MmcJ6Sq7YkuILdM-4GFMyF_-XrJDIw/exec"; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxOwfzeiTZIKOiXzfyhbbXay9bODipPhmPWNXTaLxdrBpHJ8u7ifEVpZwBNmyzHRkOmnA/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -207,7 +207,7 @@
 
             const printWindow = window.open('', '_blank');
             if (printWindow) {
-                printWindow.document.write('
+                printWindow.document.write(`
                     <html>
                     <head>
                         <title>Печать маркировки</title>
@@ -238,7 +238,7 @@
                         <\/script>
                     </body>
                     </html>
-                ');
+                `);
                 printWindow.document.close();
             }
         }
