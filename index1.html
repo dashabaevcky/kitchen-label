@@ -18,6 +18,7 @@
         .tile.sub-group-tile { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }  
         .tile .shelf-life-badge { font-size: 12px; color: #ff5a5a; margin-top: 8px; font-weight: normal; background: #ffebeb; padding: 2px 8px; border-radius: 4px; }
         .loading { text-align: center; font-size: 18px; color: #666; margin-top: 50px; }
+        .error-message { text-align: center; color: #dc2626; padding: 20px; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -33,8 +34,8 @@
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7kAelhr6RXzVE6moXhWOjTRbxzipw3Lik5OUJ3KFUxACCbN-dX5gKBboGgqZpFcBcLQ/exec"; 
+        // Вставьте сюда вашу актуальную ссылку после "Нового развертывания"
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzXDO4_hgbiKoFLZWnpWNpNnVSULhPK4M7AkgrN-vJmZrefbVTd4qV1iG8vInPENucKxA/exec"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -47,7 +48,6 @@
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
-        // Чистая загрузка базы данных
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -57,39 +57,44 @@
                     renderMenu();
                 })
                 .catch(error => {
-                    loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание.";
+                    loader.className = "error-message";
+                    loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание и доступ открыт для 'Всех'.";
                     console.error("Ошибка:", error);
                 });
         }
 
-        // Отрисовка интерфейса
         function renderMenu() {
             menuContainer.innerHTML = "";
+            
+            // Защита от пустой базы данных
+            if (!Array.isArray(fullDatabase) || fullDatabase.length === 0) {
+                statusTitle.innerText = "Ошибка данных";
+                pathDisplay.innerText = "Пусто";
+                menuContainer.innerHTML = "<div class='error-message'>База данных пуста или структура таблицы не распознана скриптом.</div>";
+                return;
+            }
             
             if (currentLevel === "main") {
                 statusTitle.innerText = "Выберите зону хранения";
                 backButton.style.display = "none";
                 pathDisplay.innerText = "Главное меню";
 
-                if (Array.isArray(fullDatabase)) {
-                    fullDatabase.forEach(main => {
-                        const tile = document.createElement('div');
-                        tile.className = 'tile main-group-tile';
-                        tile.innerText = main.mainGroup || "Без названия";
-                        tile.onclick = () => {
-                            selectedMainGroup = main;
-                            // Проверка на виртуальную подгруппу без зацикливания
-                            if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
-                                selectedSubGroup = main.subGroups[0];
-                                currentLevel = "products";
-                            } else {
-                                currentLevel = "sub";
-                            }
-                            renderMenu();
-                        };
-                        menuContainer.appendChild(tile);
-                    });
-                }
+                fullDatabase.forEach(main => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile main-group-tile';
+                    tile.innerText = main.mainGroup || "Без названия";
+                    tile.onclick = () => {
+                        selectedMainGroup = main;
+                        if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
+                            selectedSubGroup = main.subGroups[0];
+                            currentLevel = "products";
+                        } else {
+                            currentLevel = "sub";
+                        }
+                        renderMenu();
+                    };
+                    menuContainer.appendChild(tile);
+                });
 
             } else if (currentLevel === "sub") {
                 statusTitle.innerText = "Выберите категорию или полку";
@@ -151,9 +156,10 @@
             const now = new Date();
             if (!shelfLifeStr) return now;
             const cleanStr = shelfLifeStr.toLowerCase().replace(/\s+/g, '');
-            const number = parseInt(cleanStr);
+            let number = parseInt(cleanStr);
 
-            if (isNaN(number)) return now;
+            // Если цифра не указана явно (например, просто "сутки" или "час"), считаем за 1
+            if (isNaN(number)) number = 1;
 
             if (cleanStr.includes('ч')) {
                 return new Date(now.getTime() + (number * 60 * 60 * 1000));
@@ -187,57 +193,23 @@
             const timeString = formatDate(now);
             const expString = formatDate(exp);
 
-            // Фиксация в Журнале Бракеража
+            // Отправка данных на запись в Журнал Бракеража Google-Таблицы
             fetch(WEB_APP_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: product.name,
-                    time: timeString,
-                    shelfLife: product.shelfLife,
-                    quality: "Доброкачественно",
-                    status: "Разрешено"
-                })
-            });
-
-// Вызов окна печати 58х40 мм
-            // Вызов окна печати 58х40 мм
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-                // ИСПРАВЛЕНО: Добавлены обязательные косые кавычки ` ` и убраны экранирующие слэши у переменных
-                printWindow.document.write(`
-                    <html>
-                    <head>
-                        <title>Печать маркировки</title>
-                        <style>
-                            @page { size: 58mm 40mm; margin: 0; }
-                            body { 
-                                width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
-                                box-sizing: border-box; font-family: Arial, sans-serif; 
-                                color: #000; background: #fff; display: flex; flex-direction: column;
-                                justify-content: center; align-items: center; text-align: center;
-                            }
-                            .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
-                            .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
-                            .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="name">${product.name}</div>
-                        <div class="info">Приготовлено: ${timeString}</div>
-                        <div class="info bold-info">Годен до: ${expString}</div>
-                        <script>
-                            window.onload = function() {
-                                window.print();
-                            };
-                            window.onafterprint = function() {
-                                window.close();
-                            };
-                        <\/script>
-                    </body>
-                    </html>
-                `);
-                printWindow.document.close();
-            }
-        }
+method: 'POST',
+mode: 'no-cors',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+name: product.name,
+time: timeString,
+shelfLife: product.shelfLife,
+quality: "Доброкачественно",
+status: "Разрешено"
+})
+});
+// Вызов окна печати термоэтикетки 58х40 мм
+const printWindow = window.open('', '_blank');
+if (printWindow) {
+printWindow.document.write(<html> <head> <title>Печать маркировки</title> <style> @page { size: 58mm 40mm; margin: 0; } body {  width: 58mm; height: 40mm; margin: 0; padding: 3mm;  box-sizing: border-box; font-family: Arial, sans-serif;  color: #000; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; } .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; } .info { font-size: 11px; margin: 2px 0; white-space: nowrap; } .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; } </style> </head> <body> <div class="name">${product.name}</div> <div class="info">Приготовлено: ${timeString}</div> <div class="info bold-info">Годен до: ${expString}</div> <script> window.onload = function() { window.print(); }; window.onafterprint = function() { window.close(); }; <\/script> </body> </html>);
+printWindow.document.close();
+}
+}
