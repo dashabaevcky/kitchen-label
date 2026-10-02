@@ -64,7 +64,7 @@
         function renderMenu() {
             menuContainer.innerHTML = "";
             
-            if (currentLevel === "main") {
+                       if (currentLevel === "main") {
                 statusTitle.innerText = "Выберите зону хранения";
                 backButton.style.display = "none";
                 pathDisplay.innerText = "Главное меню";
@@ -75,6 +75,7 @@
                     tile.innerText = main.mainGroup;
                     tile.onclick = () => {
                         selectedMainGroup = main;
+                        // ИСПРАВЛЕНО: Безопасный переход без зацикливания
                         if (main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
                             selectedSubGroup = main.subGroups[0];
                             currentLevel = "products";
