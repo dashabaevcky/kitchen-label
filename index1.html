@@ -32,7 +32,7 @@
     <div class="loading" id="loader">Пожалуйста, подождите, строим меню по группам...</div>
     <div class="grid" id="menu"></div>
 
-    <script>
+        <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKluMovUYHjSuaw9VEwL74-nKYeEEzhYuShXc0bYJzDh6pM0SZpYZxm4szKt1XVwBbIA/exec"; 
 
@@ -47,6 +47,7 @@
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
+        // Чистая загрузка данных без сбоев
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -61,72 +62,81 @@
                 });
         }
 
+        // Защищенная отрисовка интерфейса поваров
         function renderMenu() {
             menuContainer.innerHTML = "";
             
-                       if (currentLevel === "main") {
+            if (currentLevel === "main") {
                 statusTitle.innerText = "Выберите зону хранения";
                 backButton.style.display = "none";
                 pathDisplay.innerText = "Главное меню";
 
-                fullDatabase.forEach(main => {
-                    const tile = document.createElement('div');
-                    tile.className = 'tile main-group-tile';
-                    tile.innerText = main.mainGroup;
-                    tile.onclick = () => {
-                        selectedMainGroup = main;
-                        // ИСПРАВЛЕНО: Безопасный переход без зацикливания
-                        if (main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
-                            selectedSubGroup = main.subGroups[0];
-                            currentLevel = "products";
-                        } else {
-                            currentLevel = "sub";
-                        }
-                        renderMenu();
-                    };
-                    menuContainer.appendChild(tile);
-                });
+                if (Array.isArray(fullDatabase)) {
+                    fullDatabase.forEach(main => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile main-group-tile';
+                        tile.innerText = main.mainGroup || "Без названия";
+                        tile.onclick = () => {
+                            selectedMainGroup = main;
+                            // ИСПРАВЛЕНО: Безопасный автоматический переход без риска бесконечного цикла
+                            if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
+                                selectedSubGroup = main.subGroups[0];
+                                currentLevel = "products";
+                            } else {
+                                currentLevel = "sub";
+                            }
+                            renderMenu();
+                        };
+                        menuContainer.appendChild(tile);
+                    });
+                }
 
             } else if (currentLevel === "sub") {
                 statusTitle.innerText = "Выберите категорию или полку";
                 backButton.style.display = "block";
-                pathDisplay.innerText = selectedMainGroup.mainGroup;
+                pathDisplay.innerText = selectedMainGroup ? selectedMainGroup.mainGroup : "";
 
-                selectedMainGroup.subGroups.forEach(sub => {
-                    const tile = document.createElement('div');
-                    tile.className = 'tile sub-group-tile';
-                    tile.innerText = sub.subGroup;
-                    tile.onclick = () => {
-                        selectedSubGroup = sub;
-                        currentLevel = "products";
-                        renderMenu();
-                    };
-                    menuContainer.appendChild(tile);
-                });
+                if (selectedMainGroup && Array.isArray(selectedMainGroup.subGroups)) {
+                    selectedMainGroup.subGroups.forEach(sub => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile sub-group-tile';
+                        tile.innerText = sub.subGroup || "Общее";
+                        tile.onclick = () => {
+                            selectedSubGroup = sub;
+                            currentLevel = "products";
+                            renderMenu();
+                        };
+                        menuContainer.appendChild(tile);
+                    });
+                }
 
             } else if (currentLevel === "products") {
                 statusTitle.innerText = "Выберите полуфабрикат для печати";
                 backButton.style.display = "block";
                 
-                if (selectedSubGroup.subGroup === "Без подгруппы") {
-                    pathDisplay.innerText = selectedMainGroup.mainGroup;
-                } else {
-                    pathDisplay.innerText = `${selectedMainGroup.mainGroup} ➔ ${selectedSubGroup.subGroup}`;
-                }
+                if (selectedSubGroup) {
+                    if (selectedSubGroup.subGroup === "Без подгруппы") {
+                        pathDisplay.innerText = selectedMainGroup ? selectedMainGroup.mainGroup : "";
+                    } else {
+                        pathDisplay.innerText = `${selectedMainGroup ? selectedMainGroup.mainGroup : ""} ➔ ${selectedSubGroup.subGroup}`;
+                    }
 
-                selectedSubGroup.products.forEach(prod => {
-                    const tile = document.createElement('div');
-                    tile.className = 'tile';
-                    tile.innerHTML = `<div>${prod.name}</div><div class="shelf-life-badge">Срок: ${prod.shelfLife}</div>`;
-                    tile.onclick = () => generateAndPrint(prod);
-                    menuContainer.appendChild(tile);
-                });
+                    if (Array.isArray(selectedSubGroup.products)) {
+                        selectedSubGroup.products.forEach(prod => {
+                            const tile = document.createElement('div');
+                            tile.className = 'tile';
+                            tile.innerHTML = `<div>${prod.name}</div><div class="shelf-life-badge">Срок: ${prod.shelfLife}</div>`;
+                            tile.onclick = () => generateAndPrint(prod);
+                            menuContainer.appendChild(tile);
+                        });
+                    }
+                }
             }
         }
 
         function goBack() {
             if (currentLevel === "products") {
-                if (selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
+                if (selectedMainGroup && selectedMainGroup.subGroups && selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
                     currentLevel = "main";
                 } else {
                     currentLevel = "sub";
@@ -139,6 +149,7 @@
 
         function calculateExpiryDate(shelfLifeStr) {
             const now = new Date();
+            if (!shelfLifeStr) return now;
             const cleanStr = shelfLifeStr.toLowerCase().replace(/\s+/g, '');
             const number = parseInt(cleanStr);
 
@@ -169,6 +180,7 @@
             return `${d}.${m}.${y} ${h}:${min}`;
         }
 
+        // ИСПРАВЛЕНО: Восстановлена целостность разметки и системные вызовы печати внутри фрейма
         function generateAndPrint(product) {
             const now = new Date();
             const exp = calculateExpiryDate(product.shelfLife);
@@ -204,27 +216,26 @@
                             color: #000; background: #fff; display: flex; flex-direction: column;
                             justify-content: center; align-items: center; text-align: center;
                         }
-.name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
-.info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
-.bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
-
-
-
-${product.name}
-Приготовлено: ${timeString}
-Годен до: ${expString}
-
-window.onload = function() {
-window.print();
-};
-window.onafterprint = function() {
-window.close();
-};
-<\/script>
-</body>
-</html>
-
-
-`);
-printWindow.document.close();
-}
+                        .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+                        .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+                        .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="name">\${product.name}</div>
+                    <div class="info">Приготовлено: \${timeString}</div>
+                    <div class="info bold-info">Годен до: \${expString}</div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                        };
+                        window.onafterprint = function() {
+                            window.close();
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    </script>
