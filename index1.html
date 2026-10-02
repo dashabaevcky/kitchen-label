@@ -61,7 +61,6 @@
                 });
         }
 
-        // ИСПРАВЛЕННАЯ ЛОГИКА СИНТАКСИСА МАССИВОВ С АВТОПРОПУСКОМ
         function renderMenu() {
             menuContainer.innerHTML = "";
             
@@ -76,7 +75,6 @@
                     tile.innerText = main.mainGroup;
                     tile.onclick = () => {
                         selectedMainGroup = main;
-                        // ИСПРАВЛЕНО: Правильный синтаксис проверки первого элемента массива [0]
                         if (main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
                             selectedSubGroup = main.subGroups[0];
                             currentLevel = "products";
@@ -203,8 +201,8 @@
                             width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
                             box-sizing: border-box; font-family: Arial, sans-serif; 
                             color: #000; background: #fff; display: flex; flex-direction: column;
-justify-content: center; align-items: center; text-align: center;
-}
+                            justify-content: center; align-items: center; text-align: center;
+                        }
 .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
 .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
 .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
