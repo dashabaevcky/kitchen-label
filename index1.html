@@ -34,7 +34,7 @@
 
     <script>
         // Ваша актуальная рабочая ссылка Google Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbztnRZv61XOJvY6PRSKUdhEn1iaCH-MyJ-m4POLIc9_wa72Y1EsgY4Mrnfxv_DvGt8GuA/exec"; 
+        const WEB_APP_URL = "https://google.com"; 
 
         const menuContainer = document.getElementById('menu');
         const loader = document.getElementById('loader');
@@ -47,7 +47,6 @@
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
-        // ОДНОКРАТНАЯ ЧИСТАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
         if (WEB_APP_URL && WEB_APP_URL !== "") {
             fetch(WEB_APP_URL)
                 .then(response => response.json())
@@ -62,7 +61,7 @@
                 });
         }
 
-        // КОРРЕКТНАЯ ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ НА КУХНЕ
+        // НАСТРОЕННАЯ ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ
         function renderMenu() {
             menuContainer.innerHTML = "";
             
@@ -77,14 +76,20 @@
                     tile.innerText = main.mainGroup;
                     tile.onclick = () => {
                         selectedMainGroup = main;
-                        currentLevel = "sub";
+                        // АВТОПРОПУСК: если подгруппа всего одна и она виртуальная ("Без подгруппы"), переходим сразу к товарам
+                        if (main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
+                            selectedSubGroup = main.subGroups[0];
+                            currentLevel = "products";
+                        } else {
+                            currentLevel = "sub";
+                        }
                         renderMenu();
                     };
                     menuContainer.appendChild(tile);
                 });
 
             } else if (currentLevel === "sub") {
-                statusTitle.innerText = "Выберите полку или категорию";
+                statusTitle.innerText = "Выберите категорию или полку";
                 backButton.style.display = "block";
                 pathDisplay.innerText = selectedMainGroup.mainGroup;
 
@@ -103,7 +108,13 @@
             } else if (currentLevel === "products") {
                 statusTitle.innerText = "Выберите полуфабрикат для печати";
                 backButton.style.display = "block";
-                pathDisplay.innerText = `${selectedMainGroup.mainGroup} ➔ ${selectedSubGroup.subGroup}`;
+                
+                // Корректное отображение хлебных крошек
+                if (selectedSubGroup.subGroup === "Без подгруппы") {
+                    pathDisplay.innerText = selectedMainGroup.mainGroup;
+                } else {
+                    pathDisplay.innerText = `${selectedMainGroup.mainGroup} ➔ ${selectedSubGroup.subGroup}`;
+                }
 
                 selectedSubGroup.products.forEach(prod => {
                     const tile = document.createElement('div');
@@ -117,7 +128,12 @@
 
         function goBack() {
             if (currentLevel === "products") {
-                currentLevel = "sub";
+                // Если мы зашли в продукты напрямую (минуя подгруппы), кнопка Назад вернет в Главное меню
+                if (selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
+                    currentLevel = "main";
+                } else {
+                    currentLevel = "sub";
+                }
             } else if (currentLevel === "sub") {
                 currentLevel = "main";
             }
@@ -179,7 +195,7 @@
 
             // Вызов окна печати 58х40 мм
             const printWindow = window.open('', '_blank');
-printWindow.document.write(`
+            printWindow.document.write(`
                 <html>
                 <head>
                     <title>Печать маркировки</title>
@@ -188,22 +204,22 @@ printWindow.document.write(`
                         body { 
                             width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
                             box-sizing: border-box; font-family: Arial, sans-serif; 
-                            color: #000; background: #fff; display: flex; flex-direction: column;
-                            justify-content: center; align-items: center; text-align: center;
-                        }
-                        .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
-                        .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
-                        .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="name">${product.name}</div>
-                    <div class="info">Приготовлено: ${timeString}</div>
-                    <div class="info bold-info">Годен до: ${expString}</div>
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                        };
+color: #000; background: #fff; display: flex; flex-direction: column;
+justify-content: center; align-items: center; text-align: center;
+}
+.name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+.info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+.bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
+
+
+
+${product.name}
+Приготовлено: ${timeString}
+Годен до: ${expString}
+
+window.onload = function() {
+window.print();
+};
 window.onafterprint = function() {
 window.close();
 };
