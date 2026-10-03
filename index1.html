@@ -10,6 +10,8 @@
         .nav-panel { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; min-height: 40px; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .back-btn { background: #4f46e5; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; font-size: 14px; }
         .back-btn:active { background: #3730a3; }
+        .refresh-btn { background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .refresh-btn:active { background: #059669; }
         .current-path { font-size: 14px; color: #666; font-weight: 500; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 15px; }
         .tile { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 70px; }
@@ -27,13 +29,13 @@
     <div class="nav-panel">
         <button class="back-btn" id="back-button" onclick="goBack()">⬅ Назад</button>
         <div class="current-path" id="path-display">Загрузка...</div>
+        <button class="refresh-btn" id="refresh-button" onclick="forceRefreshData()">🔄 Обновить базу</button>
     </div>
     
     <div class="loading" id="loader">Пожалуйста, подождите, строим меню по группам...</div>
     <div class="grid" id="menu"></div>
 
     <script>
-        // Ваша актуальная рабочая ссылка Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzyrYlwNnjaTnEqnHQokcwvs0XMuFSlrXjltDPlvvxRcvhruO_PVpuKn-qbEy9hsM8Zag/exec"; 
 
         const menuContainer = document.getElementById('menu');
@@ -47,19 +49,69 @@
         let selectedMainGroup = null;
         let selectedSubGroup = null;
 
-        // Чистая загрузка базы данных
-        if (WEB_APP_URL && WEB_APP_URL !== "") {
+        // Инициализация загрузки с проверкой кэша LocalStorage
+        function initApp() {
+            const cachedData = localStorage.getItem('kitchen_db_data');
+            const cachedTime = localStorage.getItem('kitchen_db_timestamp');
+            const now = new Date().getTime();
+            
+            // Если кэш есть и ему меньше 4 часов — загружаем мгновенно
+            if (cachedData && cachedTime && (now - cachedTime < 4 * 60 * 60 * 1000)) {
+                console.log("Загружено из локального кэша");
+                fullDatabase = JSON.parse(cachedData);
+                loader.style.display = 'none';
+                renderMenu();
+            } else {
+                // Если кэша нет или он устарел — идем в сеть
+                loadDataFromNetwork();
+            }
+        }
+
+        function loadDataFromNetwork() {
+            loader.style.display = 'block';
+            loader.innerText = "Загрузка актуальных данных из Google Таблиц...";
+            menuContainer.innerHTML = "";
+
+            if (!WEB_APP_URL) {
+                loader.innerText = "Ошибка: Не указан URL веб-приложения.";
+                return;
+            }
+
             fetch(WEB_APP_URL)
                 .then(response => response.json())
                 .then(data => {
-                    fullDatabase = data;
-                    loader.style.display = 'none';
-                    renderMenu();
+                    if (data && data.status !== "error") {
+                        fullDatabase = data;
+                        // Сохраняем в кэш
+                        localStorage.setItem('kitchen_db_data', JSON.stringify(data));
+                        localStorage.setItem('kitchen_db_timestamp', new Date().getTime().toString());
+                        
+                        loader.style.display = 'none';
+                        renderMenu();
+                    } else {
+                        throw new Error(data.message || "Ошибка структуры");
+                    }
                 })
                 .catch(error => {
-                    loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание.";
-                    console.error("Ошибка:", error);
+                    // Если сеть упала, но у нас есть хоть какой-то старый кэш — даем работать на нём
+                    const oldCache = localStorage.getItem('kitchen_db_data');
+                    if (oldCache) {
+                        fullDatabase = JSON.parse(oldCache);
+                        loader.style.display = 'none';
+                        renderMenu();
+                        alert("Режим офлайн: загружена копия базы. Проверьте Новое Развертывание в Google.");
+                    } else {
+                        loader.innerText = "Ошибка связи с Google. Убедитесь, что сделали Новое Развертывание в Apps Script.";
+                        console.error("Ошибка:", error);
+                    }
                 });
+        }
+
+        // Принудительное обновление базы по кнопке
+        function forceRefreshData() {
+            localStorage.removeItem('kitchen_db_data');
+            localStorage.removeItem('kitchen_db_timestamp');
+            loadDataFromNetwork();
         }
 
         // Отрисовка интерфейса
@@ -248,4 +300,9 @@
                 printWindow.document.close();
             }
         }
- 
+
+        // Запуск при загрузке страницы
+        window.onload = initApp;
+    </script>
+</body>
+</html>
