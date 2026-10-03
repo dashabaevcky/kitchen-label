@@ -78,7 +78,10 @@
                         tile.innerText = main.mainGroup || "Без названия";
                         tile.onclick = () => {
                             selectedMainGroup = main;
-                            if (main.subGroups && main.subGroups.length === 1 && main.subGroups[0].subGroup === "Без подгруппы") {
+                            
+                            // Защищенное условие: проверяем оба варианта отсутствия подгрупп (пусто или "Без подгруппы")
+                            if (main.subGroups && main.subGroups.length === 1 && 
+                                (main.subGroups[0].subGroup === "Без подгруппы" || main.subGroups[0].subGroup === "")) {
                                 selectedSubGroup = main.subGroups[0];
                                 currentLevel = "products";
                             } else {
@@ -114,7 +117,7 @@
                 backButton.style.display = "block";
                 
                 if (selectedSubGroup) {
-                    if (selectedSubGroup.subGroup === "Без подгруппы") {
+                    if (selectedSubGroup.subGroup === "Без подгруппы" || selectedSubGroup.subGroup === "") {
                         pathDisplay.innerText = selectedMainGroup ? selectedMainGroup.mainGroup : "";
                     } else {
                         pathDisplay.innerText = `${selectedMainGroup ? selectedMainGroup.mainGroup : ""} ➔ ${selectedSubGroup.subGroup}`;
@@ -135,7 +138,8 @@
 
         function goBack() {
             if (currentLevel === "products") {
-                if (selectedMainGroup && selectedMainGroup.subGroups && selectedMainGroup.subGroups.length === 1 && selectedMainGroup.subGroups[0].subGroup === "Без подгруппы") {
+                if (selectedMainGroup && selectedMainGroup.subGroups && selectedMainGroup.subGroups.length === 1 && 
+                    (selectedMainGroup.subGroups[0].subGroup === "Без подгруппы" || selectedMainGroup.subGroups[0].subGroup === "")) {
                     currentLevel = "main";
                 } else {
                     currentLevel = "sub";
@@ -209,7 +213,7 @@
             const productName = product && product.name ? product.name : "Неизвестный П/Ф";
             const preparationTime = timeString || "";
             const expirationTime = expString || "";
-            // 2. Открываем окно печати
+            
             if (printWindow) {
                 printWindow.document.write(`
                     <html>
@@ -241,6 +245,9 @@
                     </body>
                     </html>
                 `);
-            printWindow.document.close(); // Обязательно закрываем поток записи
-                }
-  
+                printWindow.document.close();
+            }
+        }
+    </script>
+</body>
+</html>
