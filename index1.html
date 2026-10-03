@@ -206,6 +206,10 @@
             });
 
             const printWindow = window.open('', '_blank');
+            const productName = product && product.name ? product.name : "Неизвестный П/Ф";
+            const preparationTime = timeString || "";
+            const expirationTime = expString || "";
+            // 2. Открываем окно печати
             if (printWindow) {
                 printWindow.document.write(`
                     <html>
@@ -225,23 +229,21 @@
                         </style>
                     </head>
                     <body>
-                        <div class="name">${product.name}</div>
-                        <div class="info">Приготовлено: ${timeString}</div>
-                        <div class="info bold-info">Годен до: ${expString}</div>
+                        <div class="name">${productName}</div>
+                        <div class="info">Приготовлено: ${preparationTime}</div>
+                        <div class="info bold-info">Годен до: ${expirationTime}</div>
                         <script>
                             window.onload = function() {
                                 window.print();
-                            };
-                            window.onafterprint = function() {
-                                window.close();
+                                setTimeout(function() { window.close(); }, 500);
                             };
                         <\/script>
                     </body>
                     </html>
                 `);
-                printWindow.document.close();
-            }
-        }
+            printWindow.document.close(); // Обязательно закрываем поток записи
+                }
+        
     </script>
 </body>
 </html>
