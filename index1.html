@@ -174,6 +174,14 @@
                     } else {
                         pathDisplay.innerText = `${selectedMainGroup ? selectedMainGroup.mainGroup : ""} ➔ ${selectedSubGroup.subGroup}`;
                     }
+                    if (Array.isArray(selectedSubGroup.products) && selectedSubGroup.products.length > 0) {
+                        // Кнопка массовой пакетной печати
+                        const batchBtn = document.createElement('button');
+                        batchBtn.style.cssText = "grid-column: 1 / -1; background: #ef4444; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin-bottom: 10px;";
+                        batchBtn.innerText = `🖨 Печать всей подгруппы (${selectedSubGroup.products.length} шт.)`;
+                        batchBtn.onclick = () => printAllSubGroup(selectedSubGroup.products);
+                        menuContainer.appendChild(batchBtn);
+                    }
 
                     if (Array.isArray(selectedSubGroup.products)) {
                         selectedSubGroup.products.forEach(prod => {
@@ -302,6 +310,80 @@
         }
 
         // Запуск при загрузке страницы
+       // window.onload = initApp;
+  function printAllSubGroup(products) {
+            if (!confirm("Напечатать все стикеры из этой подгруппы (" + products.length + " шт.)?")) return;
+
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return;
+
+            let htmlContent = `
+                <html>
+                <head>
+                    <title>Массовая печать маркировок</title>
+                    <style>
+                        @page { size: 58mm 40mm; margin: 0; }
+                        html, body { margin: 0; padding: 0; background: #fff; }
+                        .sticker { 
+                            width: 58mm; height: 40mm; margin: 0; padding: 3mm; 
+                            box-sizing: border-box; font-family: Arial, sans-serif; 
+                            color: #000; display: flex; flex-direction: column;
+                            justify-content: center; align-items: center; text-align: center;
+                            page-break-after: always;
+                        }
+                        .sticker:last-child { page-break-after: avoid; }
+                        .name { font-size: 15px; font-weight: bold; line-height: 1.2; margin-bottom: 5px; width: 100%; word-wrap: break-word; }
+                        .info { font-size: 11px; margin: 2px 0; white-space: nowrap; }
+                        .bold-info { font-size: 12px; font-weight: bold; margin-top: 2px; }
+                    </style>
+                </head>
+                <body>
+            `;
+
+            const now = new Date();
+            const timeString = formatDate(now);
+
+            products.forEach(product => {
+                const exp = calculateExpiryDate(product.shelfLife);
+                const expString = formatDate(exp);
+
+                fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: product.name,
+                        time: timeString,
+                        shelfLife: expString, 
+                        quality: "Доброкачественно",
+                        status: "Разрешено"
+                    })
+                });
+
+                htmlContent += `
+                    <div class="sticker">
+                        <div class="name">${product.name}</div>
+                        <div class="info">Приготовлено: ${timeString}</div>
+                        <div class="info bold-info">Годен до: ${expString}</div>
+                    </div>
+                `;
+            });
+
+            htmlContent += `
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() { window.close(); }, 500);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+        }
+
         window.onload = initApp;
     </script>
 </body>
